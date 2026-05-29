@@ -1,1 +1,1 @@
-export { useFilterStore } from "@/lib/stores/ui-store";
+export { filterDefaults, useFilterStore, type ExplorerSort } from "@/lib/stores/ui-store";

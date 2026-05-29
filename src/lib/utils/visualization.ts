@@ -39,6 +39,15 @@ export function trendToSeries(response: TrendKeywordResponse, days: number) {
   );
 }
 
+export function movingAverage(rows: Array<{ date: string; value: number }>, windowSize = 7) {
+  return rows.map((row, index) => {
+    const start = Math.max(0, index - windowSize + 1);
+    const slice = rows.slice(start, index + 1);
+    const value = slice.reduce((sum, item) => sum + item.value, 0) / slice.length;
+    return { ...row, value: Number(value.toFixed(2)) };
+  });
+}
+
 export function downloadCsv(filename: string, rows: Array<Record<string, string | number>>) {
   if (!rows.length) return;
   const headers = Object.keys(rows[0]);

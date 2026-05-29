@@ -169,7 +169,7 @@ function normalizeTextDeep(value: unknown): unknown {
 }
 
 export function fixMojibake(value: string) {
-  if (!/[ÃÂÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/.test(value)) {
+  if (!/[ÃÂìíëêÀ-ÿ]|�/.test(value)) {
     return value;
   }
 
@@ -178,7 +178,9 @@ export function fixMojibake(value: string) {
     const decoded = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
     const decodedHangul = (decoded.match(/[가-힣]/g) ?? []).length;
     const originalHangul = (value.match(/[가-힣]/g) ?? []).length;
-    return decodedHangul > originalHangul ? decoded : value;
+    const decodedNoise = (decoded.match(/[ÃÂìíëêÀ-ÿ�]/g) ?? []).length;
+    const originalNoise = (value.match(/[ÃÂìíëêÀ-ÿ�]/g) ?? []).length;
+    return decodedHangul > originalHangul || decodedNoise < originalNoise ? decoded : value;
   } catch {
     return value;
   }

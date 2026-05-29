@@ -21,6 +21,17 @@ export function highlightTerms(text: string, terms: string[]) {
   }));
 }
 
+export function decodeHtmlEntities(text?: string | null) {
+  if (!text) return "";
+  return text
+    .replaceAll("&middot;", "·")
+    .replaceAll("&amp;", "&")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#39;", "'");
+}
+
 export async function downloadBlob(url: string, filename: string) {
   const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
   const response = await fetch(fullUrl);

@@ -55,6 +55,12 @@ export type Article = {
   summary: string | null;
   relevance_score: number;
   relevance_flag: boolean;
+  region_scope?: "gwangju_jeonnam" | "other_region" | "national_or_unknown" | string;
+  classification?: {
+    region_scope: string;
+    priority_basis: string;
+    is_gwangju_jeonnam_priority: boolean;
+  };
   entities: ArticleMeta["entities"];
 };
 

@@ -4,12 +4,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { Copy, FileDown, GripVertical, Plus } from "lucide-react";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { RelatedContentDialog } from "@/components/domain/related-content-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,7 +37,7 @@ import type { AlertRuleInput, Article, Bookmark, DailyReport } from "@/types/api
 
 const alertSchema = z.object({
   name: z.string().min(1, "규칙 이름을 입력하세요."),
-  keywords: z.string().min(1, "키워드를 입력하세요."),
+  keywords: z.string().min(1, "키워드를 하나 이상 입력하세요."),
   regions: z.string().optional(),
   agendas: z.string().optional(),
   minScore: z.number().min(0).max(100),
@@ -68,7 +68,7 @@ export default function ReportsPage() {
       <div>
         <h1 className="text-xl font-semibold">리포트 & 알림</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          자동 리포트 확인, 알림 규칙 생성, 북마크 이슈카드 정리를 처리합니다.
+          자동 리포트를 확인하고, 알림 규칙과 북마크 이슈카드를 관리합니다.
         </p>
       </div>
 
@@ -97,6 +97,10 @@ export default function ReportsPage() {
                   </SelectContent>
                 </Select>
                 <Input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+                <p className="text-xs text-muted-foreground">
+                  현재 API는 일일 리포트를 기준으로 조회합니다. 선택한 유형은 미리보기 제목과 복사용
+                  요약에 반영됩니다.
+                </p>
                 <Button asChild className="w-full">
                   <a href={`${API_BASE_URL}/api/reports/daily?date=${date}&format=pdf`}>
                     <FileDown className="h-4 w-4" />
@@ -107,7 +111,7 @@ export default function ReportsPage() {
                   variant="outline"
                   className="w-full"
                   onClick={async () => {
-                    await navigator.clipboard.writeText(toMarkdown(report.data?.data));
+                    await navigator.clipboard.writeText(toMarkdown(report.data?.data, reportType));
                     toast.success("요약을 클립보드에 복사했습니다.");
                   }}
                 >
@@ -119,7 +123,7 @@ export default function ReportsPage() {
             {report.isLoading ? (
               <Skeleton className="h-[720px] w-full" />
             ) : (
-              <ReportPreview report={report.data?.data} />
+              <ReportPreview report={report.data?.data} reportType={reportType} />
             )}
           </div>
         </TabsContent>
@@ -142,7 +146,7 @@ export default function ReportsPage() {
                       <th className="p-3 text-left">이름</th>
                       <th className="p-3 text-left">조건 요약</th>
                       <th className="p-3 text-left">채널</th>
-                      <th className="p-3 text-left">활성</th>
+                      <th className="p-3 text-left">상태</th>
                       <th className="p-3 text-left">마지막 발송</th>
                     </tr>
                   </thead>
@@ -186,8 +190,8 @@ export default function ReportsPage() {
   );
 }
 
-function ReportPreview({ report }: { report?: DailyReport }) {
-  if (!report)
+function ReportPreview({ report, reportType }: { report?: DailyReport; reportType: string }) {
+  if (!report) {
     return (
       <Card>
         <CardContent className="p-8 text-sm text-muted-foreground">
@@ -195,51 +199,116 @@ function ReportPreview({ report }: { report?: DailyReport }) {
         </CardContent>
       </Card>
     );
+  }
+
   return (
     <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>{reportTypeLabel(reportType)} 리포트 미리보기</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="whitespace-pre-line text-sm leading-6 text-muted-foreground">
+            {report.summary || "요약 문장이 아직 생성되지 않았습니다."}
+          </p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            생성 시각: {dayjs(report.generated_at_kst).format("YYYY-MM-DD HH:mm")} KST
+          </p>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-3 md:grid-cols-4">
         <Kpi label="총 기사" value={report.kpi.total_articles} />
         <Kpi label="평균 점수" value={Math.round(report.kpi.average_relevance_score)} />
         <Kpi label="고관련 기사" value={report.kpi.high_relevance_articles} />
         <Kpi label="출처 수" value={report.kpi.source_count} />
       </div>
-      <Section title="Top10 핫이슈">
-        {report.top_10_hot_issues?.slice(0, 10).map((a) => (
-          <ArticleLine key={a.id} article={a} />
+
+      <Section title="Top 10 핫이슈">
+        {report.top_10_hot_issues?.slice(0, 10).map((article) => (
+          <ArticleLine key={article.id} article={article} />
         ))}
       </Section>
+
       <Section title="영역별 핵심 기사">
         {Object.entries(report.agenda_key_articles ?? {}).map(([agenda, rows]) => (
           <div key={agenda} className="rounded-md border p-3">
             <p className="font-medium">{agenda}</p>
-            {rows.slice(0, 3).map((a) => (
-              <ArticleLine key={a.id} article={a} />
-            ))}
+            <div className="mt-2 grid gap-2">
+              {rows.slice(0, 3).map((article) => (
+                <ArticleLine key={article.id} article={article} />
+              ))}
+            </div>
           </div>
         ))}
       </Section>
+
       <Section title="부상 키워드">
         <div className="flex flex-wrap gap-2">
-          {(report.rising_keywords ?? []).map((k) => (
-            <Badge key={k.term} variant="secondary">
-              {k.term} z={k.z_score.toFixed(1)}
-            </Badge>
+          {(report.rising_keywords ?? []).map((keyword) => (
+            <RelatedContentDialog
+              key={keyword.term}
+              title={`${keyword.term} 관련 기사`}
+              description="부상 키워드와 연결된 기사와 요약을 현재 화면에서 확인합니다."
+              query={{ q: keyword.term, limit: 30, offset: 0 }}
+              trigger={
+                <button type="button" className="rounded-full outline-none focus-visible:ring-2">
+                  <Badge variant="secondary">
+                    {keyword.term} z={keyword.z_score.toFixed(1)}
+                  </Badge>
+                </button>
+              }
+            />
           ))}
         </div>
       </Section>
+
       <Section title="광주·전남 분리 요약">
         {Object.entries(report.region_summaries ?? {}).map(([region, item]) => (
           <div key={region} className="rounded-md border p-3">
-            <p className="font-medium">{region}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{item.summary}</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-medium">{region}</p>
+              <RelatedContentDialog
+                title={`${region} 관련 기사`}
+                description="지역 요약과 연결된 기사 목록을 현재 화면에서 확인합니다."
+                query={{ region, limit: 30, offset: 0 }}
+                articles={item.top_articles}
+                trigger={
+                  <Button type="button" variant="outline" size="sm">
+                    관련 내용 보기
+                  </Button>
+                }
+              />
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">{item.summary}</p>
+            <div className="mt-3 grid gap-2">
+              {item.top_articles?.slice(0, 3).map((article) => (
+                <ArticleLine key={article.id} article={article} />
+              ))}
+            </div>
           </div>
         ))}
       </Section>
+
       <Section title="토픽 클러스터">
         {(report.topic_cluster_summary ?? []).slice(0, 8).map((topic) => (
           <div key={topic.id} className="rounded-md border p-3">
-            <p className="font-medium">{topic.label}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{topic.keywords.join(", ")}</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="font-medium">{topic.label}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{topic.keywords.join(", ")}</p>
+              </div>
+              <RelatedContentDialog
+                title={`${topic.label} 관련 기사`}
+                description="선택한 토픽 클러스터에 포함된 기사와 상세 내용을 확인합니다."
+                articles={topic.articles}
+                trigger={
+                  <Button type="button" variant="outline" size="sm">
+                    관련 내용 보기
+                  </Button>
+                }
+              />
+            </div>
           </div>
         ))}
       </Section>
@@ -276,8 +345,10 @@ function AlertDialog({ onCreated }: { onCreated: (rule: AlertRuleInput) => void 
       onCreated(rule);
       toast.success("알림 규칙을 저장했습니다.");
       setOpen(false);
+      form.reset();
     },
-    onError: () => toast.error("알림 규칙 저장에 실패했습니다. 관리자 로그인을 확인해주세요."),
+    onError: () =>
+      toast.error("알림 규칙 저장에 실패했습니다. 관리자 로그인과 API 키를 확인해주세요."),
   });
 
   return (
@@ -293,18 +364,18 @@ function AlertDialog({ onCreated }: { onCreated: (rule: AlertRuleInput) => void 
         </DialogHeader>
         <form
           className="grid gap-3"
-          onSubmit={form.handleSubmit((v) =>
+          onSubmit={form.handleSubmit((values) =>
             mutation.mutate({
-              name: v.name,
+              name: values.name,
               query: {
-                keywords: split(v.keywords),
-                regions: split(v.regions),
-                agendas: split(v.agendas),
-                min_score: v.minScore,
+                keywords: split(values.keywords),
+                regions: split(values.regions),
+                agendas: split(values.agendas),
+                min_score: values.minScore,
               },
-              channel: v.channel,
-              target: v.target,
-              active: v.active,
+              channel: values.channel,
+              target: values.target,
+              active: values.active,
             }),
           )}
         >
@@ -313,7 +384,7 @@ function AlertDialog({ onCreated }: { onCreated: (rule: AlertRuleInput) => void 
           <Input placeholder="지역, 쉼표로 구분" {...form.register("regions")} />
           <Input placeholder="영역, 쉼표로 구분" {...form.register("agendas")} />
           <label className="space-y-1 text-sm">
-            <span>점수 임계값: {form.watch("minScore")}점</span>
+            <span>점수 임계값 {form.watch("minScore")}점</span>
             <input
               type="range"
               min={0}
@@ -324,8 +395,8 @@ function AlertDialog({ onCreated }: { onCreated: (rule: AlertRuleInput) => void 
           </label>
           <Select
             value={form.watch("channel")}
-            onValueChange={(v) =>
-              form.setValue("channel", v as AlertForm["channel"], { shouldDirty: true })
+            onValueChange={(value) =>
+              form.setValue("channel", value as AlertForm["channel"], { shouldDirty: true })
             }
           >
             <SelectTrigger>
@@ -367,6 +438,7 @@ function IssueBoard({
     if (from < 0 || to < 0) return;
     onRows(arrayMove(rows, from, to));
   };
+
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {["오늘 검토", "부서 공유", "추적 필요"].map((folder, folderIndex) => (
@@ -383,7 +455,7 @@ function IssueBoard({
                   bookmark={bookmark}
                   article={articleMap.get(bookmark.article_id)}
                   note={notes[bookmark.id] ?? bookmark.note ?? ""}
-                  onNote={(note) => setNotes((p) => ({ ...p, [bookmark.id]: note }))}
+                  onNote={(note) => setNotes((prev) => ({ ...prev, [bookmark.id]: note }))}
                   onDropOn={reorder}
                 />
               ))}
@@ -410,23 +482,35 @@ function IssueCard({
   return (
     <div
       draggable
-      onDragStart={(e) => e.dataTransfer.setData("text/plain", String(bookmark.id))}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => onDropOn(Number(e.dataTransfer.getData("text/plain")), bookmark.id)}
+      onDragStart={(event) => event.dataTransfer.setData("text/plain", String(bookmark.id))}
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => onDropOn(Number(event.dataTransfer.getData("text/plain")), bookmark.id)}
       className="rounded-md border bg-background p-3"
     >
       <div className="flex items-start gap-2">
         <GripVertical className="mt-1 h-4 w-4 cursor-grab text-muted-foreground" />
-        <Link href={`/explorer?article=${bookmark.article_id}`} className="min-w-0 flex-1">
-          <p className="line-clamp-2 text-sm font-medium">
-            {article?.title ?? `북마크 기사 #${bookmark.article_id}`}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {article
-              ? `${Math.round(article.relevance_score)}점 · ${article.category}`
-              : "기사 데이터를 불러오는 중"}
-          </p>
-        </Link>
+        <RelatedContentDialog
+          title={article?.title ?? `북마크 기사 #${bookmark.article_id}`}
+          description="북마크한 기사와 관련 내용을 현재 화면에서 확인합니다."
+          articles={article ? [article] : undefined}
+          initialArticleId={bookmark.article_id}
+          query={article ? undefined : { limit: 30, offset: 0 }}
+          trigger={
+            <button
+              type="button"
+              className="min-w-0 flex-1 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <p className="line-clamp-2 text-sm font-medium">
+                {article?.title ?? `북마크 기사 #${bookmark.article_id}`}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {article
+                  ? `${Math.round(article.relevance_score)}점 · ${article.category}`
+                  : "기사 데이터를 불러오는 중"}
+              </p>
+            </button>
+          }
+        />
       </div>
       <textarea
         value={note}
@@ -448,6 +532,7 @@ function Kpi({ label, value }: { label: string; value: number }) {
     </Card>
   );
 }
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Card>
@@ -458,19 +543,29 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </Card>
   );
 }
+
 function ArticleLine({ article }: { article: Article }) {
   return (
-    <Link
-      href={`/explorer?article=${article.id}`}
-      className="block rounded-md border p-3 text-sm hover:bg-muted/50"
-    >
-      <span className="line-clamp-2 font-medium">{article.title}</span>
-      <span className="mt-1 block text-xs text-muted-foreground">
-        {Math.round(article.relevance_score)}점 · {article.source_name}
-      </span>
-    </Link>
+    <RelatedContentDialog
+      title={article.title}
+      description="선택한 기사와 관련 내용을 현재 화면에서 확인합니다."
+      articles={[article]}
+      initialArticleId={article.id}
+      trigger={
+        <button
+          type="button"
+          className="block w-full rounded-md border p-3 text-left text-sm outline-none transition hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="line-clamp-2 font-medium">{article.title}</span>
+          <span className="mt-1 block text-xs text-muted-foreground">
+            {Math.round(article.relevance_score)}점 · {article.source_name}
+          </span>
+        </button>
+      }
+    />
   );
 }
+
 function split(value?: string) {
   return (
     value
@@ -479,43 +574,59 @@ function split(value?: string) {
       .filter(Boolean) ?? []
   );
 }
+
 function arrayMove<T>(items: T[], from: number, to: number) {
   const next = [...items];
   const [item] = next.splice(from, 1);
   next.splice(to, 0, item);
   return next;
 }
+
 function summarizeRule(rule: AlertRuleInput) {
-  const q = rule.query as {
+  const query = rule.query as {
     keywords?: string[];
     regions?: string[];
     agendas?: string[];
     min_score?: number;
   };
   return [
-    `키워드 ${q.keywords?.join("/") || "-"}`,
-    q.regions?.length ? `지역 ${q.regions.join("/")}` : "",
-    q.agendas?.length ? `영역 ${q.agendas.join("/")}` : "",
-    `점수 ${q.min_score ?? 0}+`,
+    `키워드 ${query.keywords?.join("/") || "-"}`,
+    query.regions?.length ? `지역 ${query.regions.join("/")}` : "",
+    query.agendas?.length ? `영역 ${query.agendas.join("/")}` : "",
+    `점수 ${query.min_score ?? 0}+`,
   ]
     .filter(Boolean)
     .join(" · ");
 }
-function toMarkdown(report?: DailyReport) {
+
+function toMarkdown(report?: DailyReport, reportType = "daily") {
   if (!report) return "리포트 데이터가 없습니다.";
   return [
-    `# 정책 리포트 (${dayjs(report.generated_at_kst).format("YYYY-MM-DD HH:mm")})`,
+    `# ${reportTypeLabel(reportType)} 정책 리포트 (${dayjs(report.generated_at_kst).format(
+      "YYYY-MM-DD HH:mm",
+    )})`,
+    "",
+    report.summary ?? "",
     "",
     `- 총 기사: ${report.kpi.total_articles}`,
     `- 평균 점수: ${Math.round(report.kpi.average_relevance_score)}`,
     `- 고관련 기사: ${report.kpi.high_relevance_articles}`,
     "",
-    "## Top10",
-    ...(report.top_10_hot_issues ?? []).slice(0, 10).map((a, i) => `${i + 1}. ${a.title}`),
+    "## Top 10",
+    ...(report.top_10_hot_issues ?? []).slice(0, 10).map((article, index) => {
+      return `${index + 1}. ${article.title}`;
+    }),
   ].join("\n");
 }
+
+function reportTypeLabel(reportType: string) {
+  if (reportType === "weekly") return "주간";
+  if (reportType === "monthly") return "월간";
+  return "일일";
+}
+
 const demoBookmarks: Bookmark[] = [
-  { id: 1, article_id: 1, note: "오전 회의 공유", created_at_kst: todayKst() },
+  { id: 1, article_id: 1, note: "실전 회의 공유", created_at_kst: todayKst() },
   { id: 2, article_id: 2, note: "관련 부서 확인", created_at_kst: todayKst() },
   { id: 3, article_id: 3, note: "추적 필요", created_at_kst: todayKst() },
 ];

@@ -1,12 +1,13 @@
 ﻿"use client";
 
 import dayjs from "dayjs";
-import { ArrowDownRight, ArrowUpRight, Copy, ExternalLink } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Copy } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
+import { RelatedContentDialog } from "@/components/domain/related-content-dialog";
+import { GWANGJU_DISTRICTS, JEONNAM_COUNTIES } from "@/components/domain/explorer/constants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +29,6 @@ const GWANGJU = "광주";
 const JEONNAM = "전남";
 
 export default function HomePage() {
-  const router = useRouter();
   const today = dayjs().format("YYYY-MM-DD");
   const allArticles = useArticles({ limit: 100, offset: 0 });
   const relatedArticles = useArticles({ min_score: 30, limit: 100, offset: 0 });
@@ -126,12 +126,20 @@ export default function HomePage() {
                     <TableRow key={article.id}>
                       <TableCell className="font-semibold">{index + 1}</TableCell>
                       <TableCell>
-                        <Link
-                          href={`/explorer?article=${article.id}`}
-                          className="line-clamp-2 font-medium hover:text-primary"
-                        >
-                          {article.title}
-                        </Link>
+                        <RelatedContentDialog
+                          title={article.title}
+                          description="오늘의 브리핑에서 선택한 이슈의 요약, 키워드, 본문을 확인합니다."
+                          articles={topIssues}
+                          initialArticleId={article.id}
+                          trigger={
+                            <button
+                              type="button"
+                              className="line-clamp-2 text-left font-medium hover:text-primary"
+                            >
+                              {article.title}
+                            </button>
+                          }
+                        />
                       </TableCell>
                       <TableCell>
                         <ScoreBar score={article.relevance_score} compact />
@@ -159,13 +167,13 @@ export default function HomePage() {
           title="광주 핵심 기사"
           articles={gwangjuArticles}
           emptyText="광주 키워드가 매칭된 기사가 아직 없습니다."
-          onOpen={() => router.push(`/explorer?region=${encodeURIComponent(GWANGJU)}&minScore=30`)}
+          region={GWANGJU}
         />
         <RegionList
           title="전남 핵심 기사"
           articles={jeonnamArticles}
           emptyText="전남 키워드가 매칭된 기사가 아직 없습니다."
-          onOpen={() => router.push(`/explorer?region=${encodeURIComponent(JEONNAM)}&minScore=30`)}
+          region={JEONNAM}
         />
       </section>
 
@@ -290,20 +298,28 @@ function RegionList({
   title,
   articles,
   emptyText,
-  onOpen,
+  region,
 }: {
   title: string;
   articles: Article[];
   emptyText: string;
-  onOpen: () => void;
+  region: string;
 }) {
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>{title}</CardTitle>
-        <Button variant="outline" size="sm" onClick={onOpen}>
-          필터로 보기
-        </Button>
+        <RelatedContentDialog
+          title={`${region} 관련 핵심 기사`}
+          description="오늘의 브리핑에서 묶은 지역 관련 내용을 현재 화면에서 확인합니다."
+          query={{ region, min_score: 30, limit: 30, offset: 0 }}
+          articles={articles.length ? articles : undefined}
+          trigger={
+            <Button variant="outline" size="sm">
+              관련 내용 보기
+            </Button>
+          }
+        />
       </CardHeader>
       <CardContent>
         {articles.length === 0 ? (
@@ -313,22 +329,30 @@ function RegionList({
         ) : (
           <div className="grid gap-3">
             {articles.map((article) => (
-              <Link
+              <RelatedContentDialog
                 key={article.id}
-                href={`/explorer?article=${article.id}`}
-                className="rounded-md border p-3 transition-colors hover:bg-muted/50"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="line-clamp-2 text-sm font-semibold">{article.title}</h3>
-                  <Badge variant="outline">{Math.round(article.relevance_score)}점</Badge>
-                </div>
-                <p className="mt-2 line-clamp-1 text-xs text-muted-foreground">
-                  {article.summary || "요약이 준비 중입니다."}
-                </p>
-                <div className="mt-2">
-                  <AgendaChips article={article} />
-                </div>
-              </Link>
+                title={`${region} 관련 기사`}
+                description="지역 핵심 기사와 상세 내용을 현재 화면에서 확인합니다."
+                articles={articles}
+                initialArticleId={article.id}
+                trigger={
+                  <button
+                    type="button"
+                    className="rounded-md border p-3 text-left transition-colors hover:bg-muted/50"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="line-clamp-2 text-sm font-semibold">{article.title}</h3>
+                      <Badge variant="outline">{Math.round(article.relevance_score)}점</Badge>
+                    </div>
+                    <p className="mt-2 line-clamp-1 text-xs text-muted-foreground">
+                      {article.summary || "요약이 준비 중입니다."}
+                    </p>
+                    <div className="mt-2">
+                      <AgendaChips article={article} />
+                    </div>
+                  </button>
+                }
+              />
             ))}
           </div>
         )}
@@ -339,31 +363,37 @@ function RegionList({
 
 function TopicSparkline({ topic }: { topic: Topic }) {
   return (
-    <Link
-      href={`/trends?topic=${topic.id}`}
-      className="min-w-56 rounded-md border p-3 transition-colors hover:bg-muted/50"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="line-clamp-1 text-sm font-medium">{topic.label}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {topic.article_count.toLocaleString()}건
-          </p>
-        </div>
-        <ExternalLink className="h-4 w-4 text-muted-foreground" />
-      </div>
-      <Sparkline
-        values={makeSparkline(topic.article_count, topic.id)}
-        className="mt-3 h-12 w-full"
-      />
-      <div className="mt-2 flex flex-wrap gap-1">
-        {topic.keywords.slice(0, 3).map((keyword) => (
-          <Badge key={keyword} variant="secondary">
-            {keyword}
-          </Badge>
-        ))}
-      </div>
-    </Link>
+    <RelatedContentDialog
+      title={`${topic.label} 관련 기사`}
+      description="선택한 토픽의 관련 기사와 요약, 키워드를 현재 화면에서 확인합니다."
+      query={{ q: topic.keywords[0] ?? topic.label, limit: 30, offset: 0 }}
+      trigger={
+        <button
+          type="button"
+          className="min-w-56 rounded-md border p-3 text-left transition-colors hover:bg-muted/50"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="line-clamp-1 text-sm font-medium">{topic.label}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {topic.article_count.toLocaleString()}건
+              </p>
+            </div>
+          </div>
+          <Sparkline
+            values={makeSparkline(topic.article_count, topic.id)}
+            className="mt-3 h-12 w-full"
+          />
+          <div className="mt-2 flex flex-wrap gap-1">
+            {topic.keywords.slice(0, 3).map((keyword) => (
+              <Badge key={keyword} variant="secondary">
+                {keyword}
+              </Badge>
+            ))}
+          </div>
+        </button>
+      }
+    />
   );
 }
 
@@ -413,7 +443,14 @@ function AgendaChips({ article }: { article: Article }) {
 
 function hasRegion(article: Article, region: string) {
   const places = article.entities?.PLACE?.map((entity) => entity.term).join(" ") ?? "";
-  return `${places} ${article.title} ${article.summary ?? ""}`.includes(region);
+  const text = `${places} ${article.title} ${article.summary ?? ""}`;
+  const aliases =
+    region === GWANGJU
+      ? [GWANGJU, "광주광역시", ...GWANGJU_DISTRICTS]
+      : region === JEONNAM
+        ? [JEONNAM, "전라남도", ...JEONNAM_COUNTIES]
+        : [region];
+  return aliases.some((alias) => text.includes(alias));
 }
 
 function makeSparkline(value: number, salt: number) {

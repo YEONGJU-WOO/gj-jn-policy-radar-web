@@ -499,3 +499,27 @@ Module not found: Can't resolve '@/lib/monitoring/sentry'
 
 https://nextjs.org/docs/messages/module-not-found
  ⚠ Found a change in next.config.mjs. Restarting the server to apply the changes...
+[next-auth][warn][NEXTAUTH_URL] 
+https://next-auth.js.org/warnings#nextauth_url
+[next-auth][warn][NO_SECRET] 
+https://next-auth.js.org/warnings#no_secret
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ ⨯ TypeError: Cannot read properties of undefined (reading 'entryCSSFiles')
+    at rD (D:\gji_research\GJI-DDC\gj-jn-policy-radar-web\node_modules\.pnpm\next@14.2.35_@playwright+te_a466e221dfe76eb6a42f4d2db719b2ed\node_modules\next\dist\compiled\next-server\app-page.runtime.dev.js:40:3748)
+    at rJ (D:\gji_research\GJI-DDC\gj-jn-policy-radar-web\node_modules\.pnpm\next@14.2.35_@playwright+te_a466e221dfe76eb6a42f4d2db719b2ed\node_modules\next\dist\compiled\next-server\app-page.runtime.dev.js:40:12942)
+    at r3 (D:\gji_research\GJI-DDC\gj-jn-policy-radar-web\node_modules\.pnpm\next@14.2.35_@playwright+te_a466e221dfe76eb6a42f4d2db719b2ed\node_modules\next\dist\compiled\next-server\app-page.runtime.dev.js:40:16180)
+    at ne (D:\gji_research\GJI-DDC\gj-jn-policy-radar-web\node_modules\.pnpm\next@14.2.35_@playwright+te_a466e221dfe76eb6a42f4d2db719b2ed\node_modules\next\dist\compiled\next-server\app-page.runtime.dev.js:40:23887)
+    at D:\gji_research\GJI-DDC\gj-jn-policy-radar-web\node_modules\.pnpm\next@14.2.35_@playwright+te_a466e221dfe76eb6a42f4d2db719b2ed\node_modules\next\dist\compiled\next-server\app-page.runtime.dev.js:43:726
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+    at Object.wrap (D:\gji_research\GJI-DDC\gj-jn-policy-radar-web\node_modules\.pnpm\next@14.2.35_@playwright+te_a466e221dfe76eb6a42f4d2db719b2ed\node_modules\next\dist\compiled\next-server\app-page.runtime.dev.js:36:17827)
+    at D:\gji_research\GJI-DDC\gj-jn-policy-radar-web\node_modules\.pnpm\next@14.2.35_@playwright+te_a466e221dfe76eb6a42f4d2db719b2ed\node_modules\next\dist\compiled\next-server\app-page.runtime.dev.js:43:616
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+    at Object.wrap (D:\gji_research\GJI-DDC\gj-jn-policy-radar-web\node_modules\.pnpm\next@14.2.35_@playwright+te_a466e221dfe76eb6a42f4d2db719b2ed\node_modules\next\dist\compiled\next-server\app-page.runtime.dev.js:36:16929)
+    at nt (D:\gji_research\GJI-DDC\gj-jn-policy-radar-web\node_modules\.pnpm\next@14.2.35_@playwright+te_a466e221dfe76eb6a42f4d2db719b2ed\node_modules\next\dist\compiled\next-server\app-page.runtime.dev.js:43:543)
+    at nb.render (D:\gji_research\GJI-DDC\gj-jn-policy-radar-web\node_modules\.pnpm\next@14.2.35_@playwright+te_a466e221dfe76eb6a42f4d2db719b2ed\node_modules\next\dist\compiled\next-server\app-page.runtime.dev.js:43:4699)
+    at doRender (D:\gji_research\GJI-DDC\gj-jn-policy-radar-web\node_modules\.pnpm\next@14.2.35_@playwright+te_a466e221dfe76eb6a42f4d2db719b2ed\node_modules\next\dist\server\base-server.js:1427:44)
+    at cacheEntry.responseCache.get.routeKind (D:\gji_research\GJI-DDC\gj-jn-policy-radar-web\node_modules\.pnpm\next@14.2.35_@playwright+te_a466e221dfe76eb6a42f4d2db719b2ed\node_modules\next\dist\server\base-server.js:1588:34)
+    at ResponseCache.get (D:\gji_research\GJI-DDC\gj-jn-policy-radar-web\node_modules\.pnpm\next@14.2.35_@playwright+te_a466e221dfe76eb6a42f4d2db719b2ed\node_modules\next\dist\server\response-cache\index.js:49:26)
+    at DevServer.renderToResponseWithComponentsImpl (D:\gji_research\GJI-DDC\gj-jn-policy-radar-web\node_modules\.pnpm\next@14.2.35_@playwright+te_a466e221dfe76eb6a42f4d2db719b2ed\node_modules\next\dist\server\base-server.js:1496:53) {
+  page: '/explorer'
+}

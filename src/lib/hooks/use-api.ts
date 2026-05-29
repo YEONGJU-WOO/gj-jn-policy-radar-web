@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import * as endpoints from "@/lib/api/endpoints";
 import type {
@@ -20,11 +20,13 @@ const stale = {
   analytics: 10 * 60_000,
 };
 
-export function useArticles(params: ArticleQuery = {}) {
+export function useArticles(params: ArticleQuery = {}, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: ["articles", params],
     queryFn: () => endpoints.getArticles(params),
     staleTime: stale.articles,
+    placeholderData: keepPreviousData,
+    enabled: options.enabled ?? true,
   });
 }
 
