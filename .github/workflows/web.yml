@@ -1,0 +1,36 @@
+name: web-ci
+
+on:
+  push:
+    paths:
+      - "gj-jn-policy-radar-web/**"
+      - ".github/workflows/web.yml"
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gj-jn-policy-radar-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: gj-jn-policy-radar-web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm e2e
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3000
+          NEXTAUTH_SECRET: test-secret
+          ADMIN_EMAIL: admin@example.com
+          ADMIN_PASSWORD: admin

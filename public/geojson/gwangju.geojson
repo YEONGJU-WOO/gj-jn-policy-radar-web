@@ -1,0 +1,85 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "code": "gwangju-dong", "name": "동구" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [126.88, 35.13],
+            [126.96, 35.13],
+            [126.96, 35.2],
+            [126.88, 35.2],
+            [126.88, 35.13]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "code": "gwangju-seo", "name": "서구" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [126.78, 35.12],
+            [126.88, 35.12],
+            [126.88, 35.2],
+            [126.78, 35.2],
+            [126.78, 35.12]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "code": "gwangju-nam", "name": "남구" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [126.82, 35.05],
+            [126.94, 35.05],
+            [126.94, 35.13],
+            [126.82, 35.13],
+            [126.82, 35.05]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "code": "gwangju-buk", "name": "북구" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [126.84, 35.2],
+            [126.98, 35.2],
+            [126.98, 35.3],
+            [126.84, 35.3],
+            [126.84, 35.2]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "code": "gwangju-gwangsan", "name": "광산구" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [126.66, 35.08],
+            [126.8, 35.08],
+            [126.8, 35.24],
+            [126.66, 35.24],
+            [126.66, 35.08]
+          ]
+        ]
+      }
+    }
+  ]
+}

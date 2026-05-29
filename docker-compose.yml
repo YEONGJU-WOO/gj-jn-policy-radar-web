@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    profiles: ["full"]
+    environment:
+      POSTGRES_DB: gjjn_policy
+      POSTGRES_USER: gjjn
+      POSTGRES_PASSWORD: gjjn
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    image: gj-jn-policy-radar-api
+    profiles: ["full"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://gjjn:gjjn@postgres:5432/gjjn_policy
+      TZ: Asia/Seoul
+    depends_on:
+      - postgres
+    ports:
+      - "8000:8000"
+
+  scheduler:
+    image: gj-jn-policy-radar-api
+    profiles: ["full"]
+    command: ["python", "-m", "gjjn.scheduler"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://gjjn:gjjn@postgres:5432/gjjn_policy
+      TZ: Asia/Seoul
+    depends_on:
+      - postgres
+
+  web:
+    build: .
+    container_name: gj-jn-policy-radar-web
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://api:8000}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-me}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: gj-jn-policy-radar_default

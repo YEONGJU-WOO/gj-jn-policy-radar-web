@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 25% 98%;
+    --foreground: 218 28% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 218 28% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 218 28% 12%;
+    --primary: 166 74% 27%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 18% 92%;
+    --secondary-foreground: 218 28% 12%;
+    --muted: 210 20% 94%;
+    --muted-foreground: 217 12% 42%;
+    --accent: 30 84% 58%;
+    --accent-foreground: 218 28% 12%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 18% 84%;
+    --input: 214 18% 84%;
+    --ring: 166 74% 27%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 218 29% 9%;
+    --foreground: 210 28% 96%;
+    --card: 218 28% 13%;
+    --card-foreground: 210 28% 96%;
+    --popover: 218 28% 13%;
+    --popover-foreground: 210 28% 96%;
+    --primary: 166 65% 45%;
+    --primary-foreground: 218 29% 9%;
+    --secondary: 218 18% 20%;
+    --secondary-foreground: 210 28% 96%;
+    --muted: 218 18% 18%;
+    --muted-foreground: 214 14% 70%;
+    --accent: 32 88% 59%;
+    --accent-foreground: 218 29% 9%;
+    --destructive: 0 74% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 218 18% 25%;
+    --input: 218 18% 25%;
+    --ring: 166 65% 45%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    letter-spacing: 0;
+  }
+
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  [role="button"]:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  .maplibregl-map {
+    font-family: inherit;
+  }
+}
