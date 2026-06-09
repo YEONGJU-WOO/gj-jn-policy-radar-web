@@ -93,7 +93,7 @@ export function RegionSidePanel({
                 ) : null}
                 <RelatedContentDialog
                   title={`${selected.name} 관련 내용`}
-                  description="선택한 지역과 정책영역에 맞는 기사와 상세 내용을 현재 화면에서 확인합니다."
+                  description="선택한 지역과 정책영역에 맞는 기사와 요약을 현재 화면에서 확인합니다."
                   query={{ region: selected.name, agenda: dialogAgenda, limit: 30, offset: 0 }}
                   articles={articles}
                   trigger={<Button className="w-full">관련 내용 보기</Button>}
@@ -168,7 +168,7 @@ export function RegionSidePanel({
             </>
           ) : (
             <p className="rounded-md border border-dashed p-5 text-sm text-muted-foreground">
-              지도에서 행정구역을 클릭하면 KPI, 영역 분포, 기사 목록이 표시됩니다.
+              지도에서 행정구역을 클릭하면 KPI, 영역 분포, 기사 목록을 표시합니다.
             </p>
           )}
         </CardContent>

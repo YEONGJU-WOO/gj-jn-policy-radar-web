@@ -30,6 +30,7 @@ import type {
   TopicArticle,
   TopicLifecycle,
   TrendKeywordResponse,
+  WordCloudKeyword,
 } from "@/types/api";
 
 export function getArticles(params: ArticleQuery = {}): Promise<Paginated<Article>> {
@@ -64,6 +65,20 @@ export function getTrendKeywords(
 
 export function getSpikes(period: ApiPeriod = "7d"): Promise<ApiEnvelope<SpikeKeyword[]>> {
   return apiGet<SpikeKeyword[]>("/api/trends/spikes", { period });
+}
+
+export function getAnalyticsWordCloud(params: {
+  period?: ApiPeriod;
+  regions?: string[];
+  agendas?: string[];
+  limit?: number;
+}): Promise<ApiEnvelope<WordCloudKeyword[]>> {
+  return apiGet<WordCloudKeyword[]>("/api/analytics/wordcloud", {
+    period: params.period ?? "14d",
+    regions: params.regions?.join(","),
+    agendas: params.agendas?.join(","),
+    limit: params.limit,
+  });
 }
 
 export function getRegionsSummary(

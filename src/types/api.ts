@@ -8,6 +8,7 @@ export type ApiEnvelope<T> = {
   group_by?: string;
   level?: string;
   code?: string;
+  article_count?: number;
 };
 
 export type Paginated<T> = ApiEnvelope<T[]> & {
@@ -50,6 +51,9 @@ export type Article = {
   category: string;
   title: string;
   url: string;
+  image_url?: string | null;
+  image_alt?: string | null;
+  department?: string | null;
   published_at_kst: string | null;
   fetched_at_kst: string;
   summary: string | null;
@@ -91,6 +95,7 @@ export type TrendPoint = { date: string; value: number };
 export type SeriesPoint = TrendPoint;
 export type TrendKeywordResponse = Record<string, Record<string, number>>;
 export type SpikeKeyword = { term: string; count: number; z_score: number };
+export type WordCloudKeyword = { name: string; value: number; article_count?: number };
 
 export type RegionSummary = {
   code: string;
@@ -167,12 +172,42 @@ export type DailyReport = {
   report_type: string;
   generated_at_kst: string;
   summary?: string;
+  decision_points?: string[];
+  risk_signals?: string[];
+  follow_up_keywords?: string[];
+  llm?: {
+    enabled: boolean;
+    provider: string;
+    model: string;
+    status: "success" | "failed" | string;
+    error?: string;
+  };
   period: { start: string; end: string };
   kpi: {
     total_articles: number;
     average_relevance_score: number;
     high_relevance_articles: number;
     source_count: number;
+  };
+  field_summaries?: Array<{
+    field: string;
+    article_count: number;
+    share: number;
+    average_score: number;
+    keywords: string[];
+    summary: string;
+    briefing_items?: BriefingItem[];
+    representative_articles: Article[];
+  }>;
+  briefing_report?: {
+    title: string;
+    format: string;
+    fields: Array<{
+      field: string;
+      article_count: number;
+      keywords: string[];
+      items: BriefingItem[];
+    }>;
   };
   top_10_hot_issues: Article[];
   agenda_key_articles: Record<string, Article[]>;
@@ -188,6 +223,16 @@ export type DailyReport = {
     article_count: number;
     articles: Article[];
   }>;
+};
+
+export type BriefingItem = {
+  subfield: string;
+  title: string;
+  bullets: string[];
+  source: string;
+  url?: string;
+  published_at_kst?: string | null;
+  relevance_score?: number;
 };
 
 export type AnalyticsAgendaDistribution = Array<{
@@ -227,9 +272,11 @@ export type ArticleQuery = {
   from?: string;
   to?: string;
   min_score?: number;
+  source?: string;
   region?: string;
   agenda?: string;
   q?: string;
+  sort?: "score_desc" | "published_desc" | "published_asc" | "relevance_desc";
   limit?: number;
   offset?: number;
 };

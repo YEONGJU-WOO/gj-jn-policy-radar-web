@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 import type { ExplorerSort } from "@/lib/stores/filter-store";
 import type { Period } from "@/types/api";
 
-export const SOURCES = ["정책브리핑", "연합뉴스"];
+export const SOURCES = ["정책브리핑", "연합뉴스", "광주일보"];
 
 export const AGENDAS = ["에너지", "산업", "의료", "인구", "교통", "농수산", "문화관광"];
 

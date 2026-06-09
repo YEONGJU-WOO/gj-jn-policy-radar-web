@@ -17,29 +17,31 @@ import {
 import type { AnalyticsRegionMatrix, ApiPeriod, Article } from "@/types/api";
 
 const JEONNAM_MAP_REGIONS = [
-  "목포",
-  "여수",
-  "순천",
-  "나주",
-  "광양",
-  "담양",
-  "곡성",
-  "구례",
-  "고흥",
-  "보성",
-  "화순",
-  "장흥",
-  "강진",
-  "해남",
-  "영암",
-  "무안",
-  "함평",
-  "영광",
-  "장성",
-  "완도",
-  "진도",
-  "신안",
+  "목포시",
+  "여수시",
+  "순천시",
+  "나주시",
+  "광양시",
+  "담양군",
+  "곡성군",
+  "구례군",
+  "고흥군",
+  "보성군",
+  "화순군",
+  "장흥군",
+  "강진군",
+  "해남군",
+  "영암군",
+  "무안군",
+  "함평군",
+  "영광군",
+  "장성군",
+  "완도군",
+  "진도군",
+  "신안군",
 ];
+
+const ALL_MAP_REGIONS = [...GWANGJU_DISTRICTS, ...JEONNAM_MAP_REGIONS];
 
 export default function MapPage() {
   const router = useRouter();
@@ -62,22 +64,10 @@ export default function MapPage() {
     [regionMatrix.data?.data, sourceArticles],
   );
 
-  const gwangjuMetrics = useMemo(
+  const metrics = useMemo(
     () =>
       buildRegionMetrics({
-        names: GWANGJU_DISTRICTS,
-        articles: sourceArticles,
-        metric,
-        agendas,
-        matrix,
-      }),
-    [agendas, matrix, metric, sourceArticles],
-  );
-
-  const jeonnamMetrics = useMemo(
-    () =>
-      buildRegionMetrics({
-        names: JEONNAM_MAP_REGIONS,
+        names: ALL_MAP_REGIONS,
         articles: sourceArticles,
         metric,
         agendas,
@@ -98,7 +88,7 @@ export default function MapPage() {
     if (!selected) return rows;
     const baseRows = rows.length
       ? rows
-      : sourceArticles.filter((article) => articleText(article).includes(selected.name));
+      : sourceArticles.filter((article) => articleMatchesRegion(article, selected.name));
     return filterByAgendas(baseRows, agendas);
   }, [agendas, selected, selectedArticles.data?.data, sourceArticles]);
 
@@ -107,7 +97,7 @@ export default function MapPage() {
       <div>
         <h1 className="text-xl font-semibold">지역 지도 뷰</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          광주 5개 자치구와 전남 22개 시군의 정책 현안 분포를 지도와 히트맵으로 비교합니다.
+          광주 5개 자치구와 전남 22개 시군을 각각의 지도에서 비교합니다.
         </p>
       </div>
 
@@ -133,7 +123,7 @@ export default function MapPage() {
                 center={[126.88, 35.16]}
                 zoom={10}
                 metric={metric}
-                metrics={gwangjuMetrics}
+                metrics={metrics.filter((item) => GWANGJU_DISTRICTS.includes(item.name))}
                 selectedCode={selected?.code}
                 onRegionClick={selectRegion}
               />
@@ -151,7 +141,7 @@ export default function MapPage() {
                 center={[126.92, 34.86]}
                 zoom={7}
                 metric={metric}
-                metrics={jeonnamMetrics}
+                metrics={metrics.filter((item) => JEONNAM_MAP_REGIONS.includes(item.name))}
                 selectedCode={selected?.code}
                 onRegionClick={selectRegion}
               />
@@ -191,7 +181,7 @@ function buildRegionMetrics({
 }): RegionMetric[] {
   return names.map((name) => {
     const matchedArticles = filterByAgendas(
-      articles.filter((article) => articleText(article).includes(name)),
+      articles.filter((article) => articleMatchesRegion(article, name)),
       agendas,
     );
     const articleCount = matchedArticles.length || matrixValueTotal(matrix, name);
@@ -202,9 +192,12 @@ function buildRegionMetrics({
         : 0;
     const sentiment = Math.max(-1, Math.min(1, (averageScore - 50) / 50));
     const topAgenda = topAgendaForRegion(matrix, name);
+    const rowIndex = matrix.rows.findIndex(
+      (row) => row === name || regionTerms(name).includes(row),
+    );
     const diversity = Math.max(
       0,
-      matrix.values[matrix.rows.indexOf(name)]?.filter((value) => value > 0).length ?? 0,
+      rowIndex >= 0 ? (matrix.values[rowIndex]?.filter((value) => value > 0).length ?? 0) : 0,
     );
 
     return {
@@ -221,7 +214,7 @@ function buildRegionMetrics({
 }
 
 function expandRegionMatrix(matrix: AnalyticsRegionMatrix | undefined, articles: Article[]) {
-  const rows = [...GWANGJU_DISTRICTS, ...JEONNAM_MAP_REGIONS];
+  const rows = ALL_MAP_REGIONS;
   const cols = agendaOptions;
   const backendByCol = new Map<string, number>();
 
@@ -237,11 +230,11 @@ function expandRegionMatrix(matrix: AnalyticsRegionMatrix | undefined, articles:
     cols.map((agenda) => {
       const direct = articles.filter((article) => {
         const text = articleText(article);
-        return text.includes(region) && text.includes(agenda);
+        return regionTerms(region).some((term) => text.includes(term)) && text.includes(agenda);
       }).length;
       if (direct > 0) return direct;
       const regionMentions = articles.filter((article) =>
-        articleText(article).includes(region),
+        articleMatchesRegion(article, region),
       ).length;
       const agendaWeight = backendByCol.get(agenda) ?? 0;
       return regionMentions && agendaWeight ? Math.max(0, Math.round(regionMentions * 0.15)) : 0;
@@ -259,14 +252,28 @@ function filterByAgendas(articles: Article[], agendas: string[]) {
   });
 }
 
+function articleMatchesRegion(article: Article, region: string) {
+  const text = articleText(article);
+  return regionTerms(region).some((term) => text.includes(term));
+}
+
+function regionTerms(region: string) {
+  const short = region.replace(/[시군구]$/, "");
+  return Array.from(new Set([region, short])).filter(Boolean);
+}
+
 function matrixValueTotal(matrix: AnalyticsRegionMatrix, region: string) {
-  const rowIndex = matrix.rows.indexOf(region);
+  const rowIndex = matrix.rows.findIndex(
+    (row) => row === region || regionTerms(region).includes(row),
+  );
   if (rowIndex < 0) return 0;
   return matrix.values[rowIndex]?.reduce((sum, value) => sum + value, 0) ?? 0;
 }
 
 function topAgendaForRegion(matrix: AnalyticsRegionMatrix, region: string) {
-  const rowIndex = matrix.rows.indexOf(region);
+  const rowIndex = matrix.rows.findIndex(
+    (row) => row === region || regionTerms(region).includes(row),
+  );
   const rowValues = rowIndex >= 0 ? matrix.values[rowIndex] : undefined;
   if (!rowValues?.length) return undefined;
   const max = Math.max(...rowValues);

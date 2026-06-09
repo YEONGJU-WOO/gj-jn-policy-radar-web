@@ -56,7 +56,14 @@ export function RegionMap({
   const { resolvedTheme } = useTheme();
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
-  const metricMap = useMemo(() => new Map(metrics.map((item) => [item.code, item])), [metrics]);
+  const metricMap = useMemo(() => {
+    const map = new Map<string, RegionMetric>();
+    metrics.forEach((item) => {
+      map.set(item.code, item);
+      map.set(item.name, item);
+    });
+    return map;
+  }, [metrics]);
   const maxValue = useMemo(() => Math.max(1, ...metrics.map((item) => item.value)), [metrics]);
 
   const applyData = useCallback(() => {
@@ -72,6 +79,7 @@ export function RegionMap({
         const name = String(feature.properties?.name ?? code);
         const regionMetric =
           metricMap.get(code) ?? metricMap.get(name) ?? createEmptyMetric(code || name, name);
+        const selected = selectedCode === code || selectedCode === name;
         return {
           ...feature,
           properties: {
@@ -80,7 +88,7 @@ export function RegionMap({
             name,
             value: regionMetric.value,
             articleCount: regionMetric.articleCount,
-            selected: selectedCode === code,
+            selected,
           },
         };
       }),
@@ -112,23 +120,8 @@ export function RegionMap({
         type: "fill",
         source: "regions",
         paint: {
-          "fill-color": [
-            "case",
-            ["boolean", ["get", "selected"], false],
-            "#f97316",
-            [
-              "interpolate",
-              ["linear"],
-              ["get", "value"],
-              0,
-              colorForMetric(metric, 0),
-              maxValue * 0.5,
-              colorForMetric(metric, 0.55),
-              maxValue,
-              colorForMetric(metric, 1),
-            ],
-          ],
-          "fill-opacity": 0.82,
+          "fill-color": fillColorExpression(metric, maxValue),
+          "fill-opacity": 0.84,
         },
       });
       map.addLayer({
@@ -136,9 +129,9 @@ export function RegionMap({
         type: "line",
         source: "regions",
         paint: {
-          "line-color": isDark ? "#e5e7eb" : "#0f172a",
-          "line-width": ["case", ["boolean", ["get", "selected"], false], 2.5, 1.1],
-          "line-opacity": 0.75,
+          "line-color": isDark ? "#f8fafc" : "#0f172a",
+          "line-width": ["case", ["boolean", ["get", "selected"], false], 3, 1.15],
+          "line-opacity": 0.82,
         },
       });
       map.addLayer({
@@ -147,13 +140,13 @@ export function RegionMap({
         source: "regions",
         layout: {
           "text-field": ["get", "name"],
-          "text-size": 12,
+          "text-size": ["interpolate", ["linear"], ["zoom"], 6, 10, 10, 13],
           "text-allow-overlap": false,
         },
         paint: {
           "text-color": isDark ? "#f8fafc" : "#0f172a",
           "text-halo-color": isDark ? "#020617" : "#ffffff",
-          "text-halo-width": 1.2,
+          "text-halo-width": 1.4,
         },
       });
 
@@ -211,22 +204,7 @@ export function RegionMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map?.isStyleLoaded()) return;
-    map.setPaintProperty("regions-fill", "fill-color", [
-      "case",
-      ["boolean", ["get", "selected"], false],
-      "#f97316",
-      [
-        "interpolate",
-        ["linear"],
-        ["get", "value"],
-        0,
-        colorForMetric(metric, 0),
-        maxValue * 0.5,
-        colorForMetric(metric, 0.55),
-        maxValue,
-        colorForMetric(metric, 1),
-      ],
-    ]);
+    map.setPaintProperty("regions-fill", "fill-color", fillColorExpression(metric, maxValue));
     applyData();
   }, [applyData, maxValue, metric, selectedCode]);
 
@@ -240,7 +218,7 @@ export function RegionMap({
 
   return (
     <div className="relative min-h-[420px] overflow-hidden rounded-md border bg-muted">
-      <div ref={containerRef} aria-label={`${title} 행정구역 지도`} className="h-[460px] w-full" />
+      <div ref={containerRef} aria-label={`${title} 행정구역 지도`} className="h-[500px] w-full" />
       {tooltip ? (
         <div
           className={cn(
@@ -249,10 +227,8 @@ export function RegionMap({
           style={{ left: tooltip.x + 12, top: tooltip.y + 12 }}
         >
           <p className="font-semibold">{tooltip.name}</p>
-          <p className="text-muted-foreground">측정값: {formatMetric(metric, tooltip.value)}</p>
-          <p className="text-muted-foreground">
-            기사 수: {tooltip.articleCount.toLocaleString()}건
-          </p>
+          <p className="text-muted-foreground">측정값 {formatMetric(metric, tooltip.value)}</p>
+          <p className="text-muted-foreground">기사 수 {tooltip.articleCount.toLocaleString()}건</p>
         </div>
       ) : null}
     </div>
@@ -271,6 +247,28 @@ function makeBaseStyle(isDark: boolean): maplibregl.StyleSpecification {
       },
     ],
   };
+}
+
+function fillColorExpression(
+  metric: MapMetric,
+  maxValue: number,
+): maplibregl.ExpressionSpecification {
+  return [
+    "case",
+    ["boolean", ["get", "selected"], false],
+    "#f97316",
+    [
+      "interpolate",
+      ["linear"],
+      ["get", "value"],
+      0,
+      colorForMetric(metric, 0),
+      maxValue * 0.5,
+      colorForMetric(metric, 0.55),
+      maxValue,
+      colorForMetric(metric, 1),
+    ],
+  ];
 }
 
 const emptyGeoJson: GeoJSON.FeatureCollection = {

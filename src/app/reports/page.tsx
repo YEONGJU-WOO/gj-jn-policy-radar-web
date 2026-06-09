@@ -224,6 +224,57 @@ function ReportPreview({ report, reportType }: { report?: DailyReport; reportTyp
         <Kpi label="출처 수" value={report.kpi.source_count} />
       </div>
 
+      <Section title="분야별 브리핑">
+        {reportBriefingFields(report).length ? (
+          <div className="grid gap-3">
+            {reportBriefingFields(report).map((field) => (
+              <div key={field.field} className="rounded-md border p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium">{field.field}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {field.article_count.toLocaleString()}건
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {field.keywords.slice(0, 8).map((keyword) => (
+                    <Badge key={keyword} variant="secondary">
+                      {keyword}
+                    </Badge>
+                  ))}
+                </div>
+                <div className="mt-4 grid gap-4">
+                  {field.items.slice(0, 3).map((item) => (
+                    <div
+                      key={`${field.field}-${item.title}`}
+                      className="rounded-md bg-muted/30 p-3"
+                    >
+                      <p className="text-sm font-semibold leading-6">
+                        ({item.subfield}) {item.title}
+                      </p>
+                      <ul className="mt-2 space-y-1.5 text-sm leading-6 text-muted-foreground">
+                        {item.bullets.slice(0, 4).map((bullet) => (
+                          <li key={bullet} className="grid grid-cols-[14px_1fr] gap-2">
+                            <span aria-hidden="true">-</span>
+                            <span>{bullet}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-2 text-xs text-muted-foreground">*출처: {item.source}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-md border border-dashed p-5 text-sm text-muted-foreground">
+            분야별 브리핑이 아직 생성되지 않았습니다.
+          </p>
+        )}
+      </Section>
+
       <Section title="Top 10 핫이슈">
         {report.top_10_hot_issues?.slice(0, 10).map((article) => (
           <ArticleLine key={article.id} article={article} />
@@ -612,11 +663,51 @@ function toMarkdown(report?: DailyReport, reportType = "daily") {
     `- 평균 점수: ${Math.round(report.kpi.average_relevance_score)}`,
     `- 고관련 기사: ${report.kpi.high_relevance_articles}`,
     "",
+    "## 분야별",
+    ...reportBriefingFields(report).map((field) => {
+      return [
+        `### ${field.field}`,
+        ...field.items
+          .slice(0, 3)
+          .flatMap((item) => [
+            `(${item.subfield}) ${item.title}`,
+            ...item.bullets.slice(0, 4).map((bullet) => `- ${bullet}`),
+            `*출처: ${item.source}`,
+            "",
+          ]),
+      ].join("\n");
+    }),
+    "",
     "## Top 10",
     ...(report.top_10_hot_issues ?? []).slice(0, 10).map((article, index) => {
       return `${index + 1}. ${article.title}`;
     }),
   ].join("\n");
+}
+
+function reportBriefingFields(report: DailyReport) {
+  const fields = report.briefing_report?.fields;
+  if (fields?.length) {
+    return fields;
+  }
+
+  return (report.field_summaries ?? []).map((field) => ({
+    field: field.field,
+    article_count: field.article_count,
+    keywords: field.keywords,
+    items:
+      field.briefing_items ??
+      field.representative_articles?.slice(0, 3).map((article) => ({
+        subfield: article.category || "주요 현안",
+        title: article.title,
+        bullets: article.summary ? [article.summary] : ["요약이 준비 중입니다."],
+        source: `${article.publisher || article.source_name}`,
+        url: article.url,
+        published_at_kst: article.published_at_kst,
+        relevance_score: article.relevance_score,
+      })) ??
+      [],
+  }));
 }
 
 function reportTypeLabel(reportType: string) {

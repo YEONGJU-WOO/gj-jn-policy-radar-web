@@ -1,9 +1,10 @@
 ﻿"use client";
 
 import dayjs from "dayjs";
-import { ArrowDownRight, ArrowUpRight, Copy } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Copy } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { RelatedContentDialog } from "@/components/domain/related-content-dialog";
@@ -13,16 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScoreBar } from "@/components/ui/ScoreBar";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useArticles, useDailyReport, useSpikes, useTopics } from "@/lib/hooks/use-dashboard";
-import { formatDateKST } from "@/lib/utils/format";
+import { decodeHtmlEntities, formatDateKST } from "@/lib/utils/format";
 import type { Article, DailyReport, SpikeKeyword, Topic } from "@/types/api";
 
 const GWANGJU = "광주";
@@ -30,11 +23,32 @@ const JEONNAM = "전남";
 
 export default function HomePage() {
   const today = dayjs().format("YYYY-MM-DD");
-  const allArticles = useArticles({ limit: 100, offset: 0 });
-  const relatedArticles = useArticles({ min_score: 30, limit: 100, offset: 0 });
+  const yesterday = dayjs().subtract(1, "day").format("YYYY-MM-DD");
+  const allArticles = useArticles({ from: today, to: today, limit: 200, offset: 0 });
+  const yesterdayAllArticles = useArticles({
+    from: yesterday,
+    to: yesterday,
+    limit: 200,
+    offset: 0,
+  });
+  const relatedArticles = useArticles({
+    from: today,
+    to: today,
+    min_score: 30,
+    limit: 200,
+    offset: 0,
+  });
+  const yesterdayRelatedArticles = useArticles({
+    from: yesterday,
+    to: yesterday,
+    min_score: 30,
+    limit: 200,
+    offset: 0,
+  });
   const topics = useTopics("14d");
   const spikes = useSpikes("7d");
   const report = useDailyReport(today);
+  const yesterdayReport = useDailyReport(yesterday);
 
   const articles = useMemo(
     () =>
@@ -45,6 +59,18 @@ export default function HomePage() {
   const topicList = topics.data?.data ?? [];
   const spikeList = spikes.data?.data ?? [];
   const reportData = report.data?.data;
+  const yesterdayReportData = yesterdayReport.data?.data;
+  const todayTopicCount = topicList.filter((topic) =>
+    dayjs(topic.created_at_kst).isSame(today, "day"),
+  ).length;
+  const yesterdayTopicCount = topicList.filter((topic) =>
+    dayjs(topic.created_at_kst).isSame(yesterday, "day"),
+  ).length;
+  const todaySpikeCount =
+    reportData?.rising_keywords?.filter((keyword) => keyword.z_score >= 2).length ??
+    spikeList.filter((keyword) => keyword.z_score >= 2).length;
+  const yesterdaySpikeCount =
+    yesterdayReportData?.rising_keywords?.filter((keyword) => keyword.z_score >= 2).length ?? 0;
 
   const gwangjuArticles = useMemo(
     () => articles.filter((article) => hasRegion(article, GWANGJU)).slice(0, 5),
@@ -60,104 +86,59 @@ export default function HomePage() {
       label: "오늘 09시 수집 기사",
       value: allArticles.data?.data.length ?? 0,
       suffix: "건",
-      delta: estimateDelta(allArticles.data?.data.length ?? 0, 13),
-      sparkline: makeSparkline(allArticles.data?.data.length ?? 0, 13),
+      delta: calculateDelta(
+        allArticles.data?.data.length ?? 0,
+        yesterdayAllArticles.data?.data.length ?? 0,
+      ),
+      sparkline: makeSparklineFromComparison(
+        allArticles.data?.data.length ?? 0,
+        yesterdayAllArticles.data?.data.length ?? 0,
+      ),
     },
     {
       label: "광주·전남 관련 기사",
       value: articles.length,
       suffix: "건",
-      delta: estimateDelta(articles.length, 9),
-      sparkline: makeSparkline(articles.length, 9),
+      delta: calculateDelta(articles.length, yesterdayRelatedArticles.data?.data.length ?? 0),
+      sparkline: makeSparklineFromComparison(
+        articles.length,
+        yesterdayRelatedArticles.data?.data.length ?? 0,
+      ),
     },
     {
       label: "신규 토픽",
-      value:
-        topicList.filter((topic) => dayjs(topic.created_at_kst).isSame(today, "day")).length ||
-        topicList.slice(0, 3).length,
+      value: todayTopicCount,
       suffix: "개",
-      delta: estimateDelta(topicList.length, 4),
-      sparkline: makeSparkline(topicList.length, 4),
+      delta: calculateDelta(todayTopicCount, yesterdayTopicCount),
+      sparkline: makeSparklineFromComparison(todayTopicCount, yesterdayTopicCount),
     },
     {
       label: "부상 키워드",
-      value: spikeList.filter((keyword) => keyword.z_score >= 2).length,
+      value: todaySpikeCount,
       suffix: "개",
-      delta: estimateDelta(spikeList.length, 5),
-      sparkline: makeSparkline(spikeList.length, 5),
+      delta: calculateDelta(todaySpikeCount, yesterdaySpikeCount),
+      sparkline: makeSparklineFromComparison(todaySpikeCount, yesterdaySpikeCount),
     },
   ];
+  const kpiLoading =
+    allArticles.isLoading ||
+    yesterdayAllArticles.isLoading ||
+    relatedArticles.isLoading ||
+    yesterdayRelatedArticles.isLoading ||
+    topics.isLoading ||
+    report.isLoading ||
+    yesterdayReport.isLoading;
 
   return (
     <div className="space-y-6">
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {kpis.map((kpi) => (
-          <KpiCard
-            key={kpi.label}
-            {...kpi}
-            loading={allArticles.isLoading || relatedArticles.isLoading}
-          />
+          <KpiCard key={kpi.label} {...kpi} loading={kpiLoading} />
         ))}
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle>Top 10 핫이슈</CardTitle>
-            <Badge variant="outline">점수 내림차순</Badge>
-          </CardHeader>
-          <CardContent>
-            {relatedArticles.isLoading ? (
-              <Skeleton className="h-80 w-full" />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">순위</TableHead>
-                    <TableHead>제목</TableHead>
-                    <TableHead className="w-36">점수</TableHead>
-                    <TableHead className="w-28">출처</TableHead>
-                    <TableHead className="w-44">영역</TableHead>
-                    <TableHead className="w-36">발행시각</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {topIssues.map((article, index) => (
-                    <TableRow key={article.id}>
-                      <TableCell className="font-semibold">{index + 1}</TableCell>
-                      <TableCell>
-                        <RelatedContentDialog
-                          title={article.title}
-                          description="오늘의 브리핑에서 선택한 이슈의 요약, 키워드, 본문을 확인합니다."
-                          articles={topIssues}
-                          initialArticleId={article.id}
-                          trigger={
-                            <button
-                              type="button"
-                              className="line-clamp-2 text-left font-medium hover:text-primary"
-                            >
-                              {article.title}
-                            </button>
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <ScoreBar score={article.relevance_score} compact />
-                      </TableCell>
-                      <TableCell>{article.source_name}</TableCell>
-                      <TableCell>
-                        <AgendaChips article={article} />
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDateKST(article.published_at_kst)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+      <section className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
+        <HotIssuesPager articles={topIssues} loading={relatedArticles.isLoading} />
 
         <PolicyFlowCard report={reportData} spikes={spikeList} loading={report.isLoading} />
       </section>
@@ -200,6 +181,163 @@ export default function HomePage() {
   );
 }
 
+function HotIssuesPager({ articles, loading }: { articles: Article[]; loading: boolean }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeArticle = articles[activeIndex];
+  const total = articles.length;
+
+  function move(step: number) {
+    if (!total) return;
+    setActiveIndex((current) => (current + step + total) % total);
+  }
+
+  return (
+    <Card className="h-full">
+      <CardHeader className="flex-row items-center justify-between space-y-0">
+        <div>
+          <CardTitle>Top 10 핫이슈</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">
+            이미지와 요약을 함께 보며 오늘의 핵심 이슈를 넘겨봅니다.
+          </p>
+        </div>
+        <Badge variant="outline">점수 내림차순</Badge>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <Skeleton className="h-[360px] w-full" />
+        ) : activeArticle ? (
+          <div className="space-y-4">
+            <RelatedContentDialog
+              title={activeArticle.title}
+              description="오늘의 브리핑에서 선택한 이슈의 요약, 키워드, 본문을 확인합니다."
+              articles={articles}
+              initialArticleId={activeArticle.id}
+              trigger={
+                <button
+                  type="button"
+                  className="group grid w-full overflow-hidden rounded-md border text-left transition-colors hover:bg-muted/30 lg:h-[320px] lg:grid-cols-[38%_62%]"
+                >
+                  <div className="relative aspect-[16/9] bg-muted lg:aspect-auto lg:h-full">
+                    {activeArticle.image_url ? (
+                      <Image
+                        src={activeArticle.image_url}
+                        alt={activeArticle.image_alt || activeArticle.title}
+                        fill
+                        sizes="(min-width: 1280px) 38vw, 100vw"
+                        className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                      />
+                    ) : (
+                      <IssueImageFallback article={activeArticle} rank={activeIndex + 1} />
+                    )}
+                    <div className="absolute left-3 top-3 rounded-md bg-background/90 px-2.5 py-1 text-sm font-semibold shadow-sm">
+                      #{activeIndex + 1}
+                    </div>
+                  </div>
+
+                  <div className="flex min-h-0 flex-col p-4 lg:p-5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge>{Math.round(activeArticle.relevance_score)}점</Badge>
+                      <Badge variant="outline">{activeArticle.source_name}</Badge>
+                      {activeArticle.department ? (
+                        <Badge variant="secondary">{activeArticle.department}</Badge>
+                      ) : null}
+                      <span className="text-xs text-muted-foreground">
+                        {formatDateKST(activeArticle.published_at_kst)}
+                      </span>
+                    </div>
+
+                    <h3 className="mt-3 line-clamp-2 text-lg font-semibold leading-7 group-hover:text-primary lg:text-xl lg:leading-8">
+                      {decodeHtmlEntities(activeArticle.title)}
+                    </h3>
+                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">
+                      {decodeHtmlEntities(activeArticle.summary) || "요약이 준비 중입니다."}
+                    </p>
+
+                    <div className="mt-3">
+                      <ScoreBar score={activeArticle.relevance_score} />
+                    </div>
+                    <div className="mt-3">
+                      <AgendaChips article={activeArticle} />
+                    </div>
+
+                    <div className="mt-auto pt-3 text-sm font-medium text-primary">
+                      상세 내용 보기
+                    </div>
+                  </div>
+                </button>
+              }
+            />
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="이전 핫이슈"
+                  onClick={() => move(-1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="다음 핫이슈"
+                  onClick={() => move(1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {articles.map((article, index) => (
+                  <button
+                    key={article.id}
+                    type="button"
+                    aria-label={`${index + 1}번 핫이슈 보기`}
+                    aria-current={index === activeIndex ? "true" : undefined}
+                    onClick={() => setActiveIndex(index)}
+                    className={`h-8 min-w-8 rounded-md border px-2 text-sm font-medium transition-colors ${
+                      index === activeIndex
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-input bg-background hover:bg-accent"
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+            오늘 표시할 핫이슈가 아직 없습니다.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function IssueImageFallback({ article, rank }: { article: Article; rank: number }) {
+  return (
+    <div className="flex h-full w-full flex-col justify-between bg-[linear-gradient(135deg,hsl(var(--primary)/0.16),hsl(var(--muted))_56%,hsl(var(--accent)/0.4))] p-5">
+      <div className="flex items-center justify-between">
+        <Badge variant="secondary">{article.source_name}</Badge>
+        <span className="text-3xl font-semibold text-primary/35">
+          {String(rank).padStart(2, "0")}
+        </span>
+      </div>
+      <div>
+        <p className="text-sm font-medium text-muted-foreground">정책 현안</p>
+        <p className="mt-2 line-clamp-3 text-lg font-semibold leading-7">
+          {decodeHtmlEntities(article.title)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function KpiCard({
   label,
   value,
@@ -217,7 +355,7 @@ function KpiCard({
 }) {
   const positive = delta >= 0;
   return (
-    <Card>
+    <Card className="h-full">
       <CardContent className="p-4">
         {loading ? (
           <Skeleton className="h-24 w-full" />
@@ -283,9 +421,9 @@ function PolicyFlowCard({
       </CardHeader>
       <CardContent>
         {loading ? (
-          <Skeleton className="h-80 w-full" />
+          <Skeleton className="h-[300px] w-full" />
         ) : (
-          <div className="whitespace-pre-line rounded-md border bg-muted/30 p-4 text-sm leading-7">
+          <div className="min-h-[300px] whitespace-pre-line rounded-md border bg-muted/30 p-4 text-sm leading-7">
             {summary}
           </div>
         )}
@@ -460,9 +598,21 @@ function makeSparkline(value: number, salt: number) {
   });
 }
 
-function estimateDelta(value: number, salt: number) {
-  const previous = Math.max(1, Math.round(value * 0.82 + salt));
-  return Math.round(((value - previous) / previous) * 100);
+function makeSparklineFromComparison(current: number, previous: number) {
+  const start = Math.max(0, previous);
+  const end = Math.max(0, current);
+  const diff = end - start;
+  return Array.from({ length: 7 }, (_, index) => {
+    const ratio = index / 6;
+    return Math.max(0, Math.round(start + diff * ratio));
+  });
+}
+
+function calculateDelta(current: number, previous: number) {
+  if (previous === 0) {
+    return current === 0 ? 0 : 100;
+  }
+  return Math.round(((current - previous) / previous) * 100);
 }
 
 function getReportSummary(report: DailyReport | undefined, spikes: SpikeKeyword[]) {

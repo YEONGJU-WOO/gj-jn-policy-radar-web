@@ -60,9 +60,9 @@ export function MapControls({
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <div>
-            <p className="text-sm font-medium">지역 필터</p>
+            <p className="text-sm font-medium">지도 필터</p>
             <p className="text-xs text-muted-foreground">
-              측정값, 기간, 정책영역을 조합해 지도와 관련 기사 목록을 갱신합니다.
+              측정값, 기간, 정책영역을 조합해 지역별 관련 기사 분포를 비교합니다.
             </p>
           </div>
         </div>

@@ -82,6 +82,20 @@ export function useSpikes(period: ApiPeriod = "7d") {
   });
 }
 
+export function useAnalyticsWordCloud(params: {
+  period?: ApiPeriod;
+  regions?: string[];
+  agendas?: string[];
+  limit?: number;
+}) {
+  return useQuery({
+    queryKey: ["analytics", "wordcloud", params],
+    queryFn: () => endpoints.getAnalyticsWordCloud(params),
+    staleTime: stale.analytics,
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function useRegionsSummary(level: RegionLevel = "gwangju") {
   return useQuery({
     queryKey: ["regions", "summary", level],

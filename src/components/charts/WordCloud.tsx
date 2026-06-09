@@ -47,7 +47,7 @@ export function WordCloud({
     <EChart
       option={option}
       height={height}
-      ariaLabel="키워드 워드클라우드"
+      ariaLabel="워드클라우드"
       onEvents={{ click: (params) => onClick?.((params as { name?: string }).name ?? "") }}
     />
   );

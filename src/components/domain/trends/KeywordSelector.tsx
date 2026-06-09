@@ -7,7 +7,7 @@ import { TREND_COLORS } from "@/components/domain/trends/constants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { isMeaningfulKoreanKeyword } from "@/lib/utils/korean-stopwords";
+import { isMeaningfulKoreanKeyword, normalizeKeywordTerm } from "@/lib/utils/korean-stopwords";
 
 export function KeywordSelector({
   value,
@@ -24,14 +24,16 @@ export function KeywordSelector({
   const filtered = useMemo(() => {
     const keyword = input.trim();
     return suggestions
-      .filter((term) => term && !value.includes(term))
+      .map(normalizeKeywordTerm)
+      .filter((term, index, array) => term && array.indexOf(term) === index)
+      .filter((term) => !value.includes(term))
       .filter(isMeaningfulKoreanKeyword)
       .filter((term) => !keyword || term.includes(keyword))
       .slice(0, 8);
   }, [input, suggestions, value]);
 
   function add(term: string) {
-    const clean = term.trim();
+    const clean = normalizeKeywordTerm(term);
     if (!clean || !isMeaningfulKoreanKeyword(clean) || value.includes(clean) || value.length >= max)
       return;
     onChange([...value, clean]);

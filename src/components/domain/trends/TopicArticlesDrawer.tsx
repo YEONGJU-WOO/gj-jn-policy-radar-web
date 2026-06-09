@@ -12,7 +12,7 @@ export function TopicArticlesDrawer({ topic, articles }: { topic?: Topic; articl
           <p className="font-medium">{topic?.label ?? "토픽을 선택하세요"}</p>
           <p className="mt-1 text-sm text-muted-foreground">
             {topic?.keywords.slice(0, 5).join(", ") ||
-              "산점도의 점을 클릭하면 관련 기사가 표시됩니다."}
+              "지도에서 토픽 점을 클릭하면 관련 기사 목록이 이곳에 표시됩니다."}
           </p>
         </div>
         {topic ? <Badge variant="outline">{topic.article_count}건</Badge> : null}
@@ -22,7 +22,7 @@ export function TopicArticlesDrawer({ topic, articles }: { topic?: Topic; articl
           <RelatedContentDialog
             key={article.id}
             title={topic?.label ?? "토픽 관련 기사"}
-            description="선택한 토픽의 관련 기사와 상세 내용을 현재 화면에서 확인합니다."
+            description="선택한 토픽과 관련된 기사 상세 내용을 현재 화면에서 확인합니다."
             articles={articles}
             initialArticleId={article.id}
             trigger={

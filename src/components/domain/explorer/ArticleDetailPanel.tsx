@@ -82,7 +82,7 @@ export function ArticleDetailPanel({
             <ArticleHeader article={article} onBookmark={() => saveBookmark(memo)} />
             <ScoreCard article={article} terms={terms} />
             <BodyBlock article={article} terms={terms} expanded={expanded} onToggle={setExpanded} />
-            <SummaryBlock summary={article.summary} />
+            <BulletSummaryBlock summary={article.summary} />
             <NerTabs article={article} />
             <SimilarArticles
               articles={similarQuery.data?.data ?? []}
@@ -249,17 +249,78 @@ function BodyBlock({
   );
 }
 
-function SummaryBlock({ summary }: { summary?: string | null }) {
+function BulletSummaryBlock({ summary }: { summary?: string | null }) {
+  const bullets = buildCleanSummaryBullets(summary);
+
   return (
     <Card className="border-l-4 border-l-primary shadow-none">
       <CardHeader className="p-4 pb-2">
         <CardTitle className="text-sm">3문장 추출 요약</CardTitle>
       </CardHeader>
-      <CardContent className="p-4 pt-0 text-sm leading-6 text-muted-foreground">
-        {decodeHtmlEntities(summary) || "요약이 준비 중입니다."}
+      <CardContent className="p-4 pt-0">
+        {bullets.length ? (
+          <ul className="space-y-2 text-sm leading-7 text-muted-foreground">
+            {bullets.map((sentence) => (
+              <li key={sentence} className="grid grid-cols-[14px_1fr] gap-2">
+                <span aria-hidden="true">-</span>
+                <span>{sentence}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm leading-7 text-muted-foreground">요약이 준비 중입니다.</p>
+        )}
       </CardContent>
     </Card>
   );
+}
+
+function buildCleanSummaryBullets(summary?: string | null) {
+  const cleaned = cleanNewsSummaryText(decodeHtmlEntities(summary));
+  if (!cleaned) return [];
+
+  return splitKoreanSentences(cleaned)
+    .map(cleanNewsSummaryText)
+    .filter(Boolean)
+    .filter((sentence) => !isLowValueNewsSentence(sentence))
+    .filter((sentence, index, sentences) => sentences.indexOf(sentence) === index)
+    .slice(0, 3);
+}
+
+function cleanNewsSummaryText(text: string) {
+  return text
+    .replace(/\[[^\]]*(?:연합뉴스|광주일보|속보|종합|그래픽|사진)[^\]]*\]/g, " ")
+    .replace(/\([^)]*(?:연합뉴스|광주일보|기자|송고|사진|자료사진)[^)]*\)/g, " ")
+    .replace(/(?:세\s*줄\s*요약|요약|본문|기사내용|앵커)\s*[:：-]?/g, " ")
+    .replace(/[가-힣]{2,4}\s*(?:기자|특파원|논설위원|객원기자)\s*=?\s*/g, " ")
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, " ")
+    .replace(/송고\s*\d{4}년?\s*\d{1,2}월?\s*\d{1,2}일?\s*\d{0,2}:?\d{0,2}/g, " ")
+    .replace(/\d{4}[.-]\d{1,2}[.-]\d{1,2}\s*\d{0,2}:?\d{0,2}\s*(?:송고|입력|수정)?/g, " ")
+    .replace(/\b(?:송고|입력|수정|무단전재|재배포\s*금지)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function splitKoreanSentences(text: string) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) return [];
+
+  const sentenceMatches = normalized.match(/[^.!?\n。！？]+[.!?。！？]+|[^.!?\n。！？]+$/g) ?? [];
+  return sentenceMatches
+    .map((sentence) => sentence.trim())
+    .map((sentence) => sentence.replace(/^[-•\d.)\s]+/, "").trim())
+    .filter((sentence) => sentence.length >= 12);
+}
+
+function isLowValueNewsSentence(sentence: string) {
+  const lowValuePatterns = [
+    /^(사진|자료사진|그래픽|표|영상)\s*=/,
+    /^(문의|제보|출처|저작권자|Copyright)/i,
+    /무단전재|재배포\s*금지|구독|좋아요|댓글|공유/,
+    /^(관련기사|기사제보|카카오톡|페이스북|트위터)/,
+    /^[가-힣]{2,4}\s*(기자|특파원|논설위원)$/,
+  ];
+  return lowValuePatterns.some((pattern) => pattern.test(sentence));
 }
 
 export function NerTabs({ article }: { article?: ArticleDetail }) {

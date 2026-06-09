@@ -37,7 +37,7 @@ export default function TrendsPage() {
       <div>
         <h1 className="text-xl font-semibold">트렌드 & 토픽</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          키워드 흐름, 토픽 군집, 워드클라우드, 동시출현 네트워크, 이슈 라이프사이클을 함께
+          키워드 흐름, 토픽 군집, 워드클라우드, 동시출현 네트워크, 이슈 라이프사이클을 한 화면에서
           분석합니다.
         </p>
       </div>

@@ -43,9 +43,11 @@ type FilterState = {
     from?: string;
     to?: string;
     min_score: number;
+    source?: string;
     region?: string;
     agenda?: string;
     q?: string;
+    sort?: ExplorerSort;
     limit: number;
     offset: number;
   };
@@ -84,7 +86,9 @@ export const useFilterStore = create<FilterState>((set, get) => ({
       from: state.from || undefined,
       to: state.to || undefined,
       min_score: state.minScore,
+      source: state.sources.length ? state.sources.join(",") : undefined,
       q: state.q || undefined,
+      sort: state.sort,
       limit: 200,
       offset: 0,
     };

@@ -1,7 +1,7 @@
 "use client";
 
 import type { EChartsOption } from "echarts";
-import { Play, Save, Upload } from "lucide-react";
+import { Brain, Play, Save, Upload } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -69,10 +69,11 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="dictionary" className="space-y-4">
-          <TabsList className="grid h-auto w-full grid-cols-2 md:grid-cols-4">
+          <TabsList className="grid h-auto w-full grid-cols-2 md:grid-cols-5">
             <TabsTrigger value="dictionary">사전 관리</TabsTrigger>
             <TabsTrigger value="weights">점수 가중치</TabsTrigger>
             <TabsTrigger value="monitor">수집 모니터</TabsTrigger>
+            <TabsTrigger value="llm">LLM 설정</TabsTrigger>
             <TabsTrigger value="jobs">잡 실행</TabsTrigger>
           </TabsList>
           <TabsContent value="dictionary">
@@ -83,6 +84,9 @@ export default function AdminPage() {
           </TabsContent>
           <TabsContent value="monitor">
             <CollectorMonitor />
+          </TabsContent>
+          <TabsContent value="llm">
+            <LLMAdmin addLog={addLog} />
           </TabsContent>
           <TabsContent value="jobs">
             <JobAdmin addLog={addLog} />
@@ -105,6 +109,275 @@ export default function AdminPage() {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+type LLMConfigForm = {
+  enabled: boolean;
+  provider: string;
+  model: string;
+  api_key: string;
+  base_url: string;
+  timeout_seconds: number;
+  max_output_tokens: number;
+  clear_api_key?: boolean;
+};
+
+const providerModels: Record<string, string[]> = {
+  openai: ["gpt-5.4-mini", "gpt-5.4", "gpt-4.1-mini", "gpt-4o-mini"],
+  "openai-compatible": ["gpt-oss-120b", "llama-3.3-70b", "qwen/qwen3-32b"],
+  openrouter: ["openai/gpt-oss-120b", "anthropic/claude-sonnet-4.5", "google/gemini-2.5-flash"],
+  groq: ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "qwen/qwen3-32b"],
+  gemini: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
+  anthropic: ["claude-sonnet-4-5", "claude-opus-4-1", "claude-3-5-haiku-latest"],
+  ollama: ["qwen2.5:7b", "llama3.1:8b", "gemma2:9b", "mistral:7b"],
+};
+
+function LLMAdmin({ addLog }: { addLog: (message: string) => void }) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [providers, setProviders] = useState<string[]>(Object.keys(providerModels));
+  const [apiKeySet, setApiKeySet] = useState(false);
+  const [source, setSource] = useState("env");
+  const [form, setForm] = useState<LLMConfigForm>({
+    enabled: false,
+    provider: "openai",
+    model: "gpt-5.4-mini",
+    api_key: "",
+    base_url: "",
+    timeout_seconds: 60,
+    max_output_tokens: 1200,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const response = await fetch("/api/admin/llm/config", { cache: "no-store" });
+      if (!response.ok) {
+        toast.error("LLM 설정을 불러오지 못했습니다.");
+        setLoading(false);
+        return;
+      }
+      const payload = await response.json();
+      const config = payload.data.config;
+      if (cancelled) return;
+      setProviders(payload.data.providers ?? Object.keys(providerModels));
+      setApiKeySet(Boolean(config.api_key_set));
+      setSource(config.source ?? "env");
+      setForm({
+        enabled: Boolean(config.enabled),
+        provider: config.provider ?? "openai",
+        model: config.model ?? "gpt-5.4-mini",
+        api_key: "",
+        base_url: config.base_url ?? "",
+        timeout_seconds: Number(config.timeout_seconds ?? 60),
+        max_output_tokens: Number(config.max_output_tokens ?? 1200),
+      });
+      setLoading(false);
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    const response = await fetch("/api/admin/llm/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    setSaving(false);
+    if (!response.ok) {
+      toast.error("LLM 설정 저장에 실패했습니다.");
+      return;
+    }
+    const payload = await response.json();
+    setApiKeySet(Boolean(payload.data.config.api_key_set));
+    setSource(payload.data.config.source ?? "db");
+    setForm((prev) => ({ ...prev, api_key: "", clear_api_key: false }));
+    toast.success("LLM 설정을 저장했습니다.");
+    addLog(`LLM ${form.provider}/${form.model} 설정 저장`);
+  }
+
+  function updateProvider(provider: string) {
+    setForm((prev) => ({
+      ...prev,
+      provider,
+      model: providerModels[provider]?.[0] ?? prev.model,
+      base_url:
+        provider === "ollama"
+          ? "http://host.docker.internal:11434/v1"
+          : provider === "openai-compatible"
+            ? prev.base_url
+            : "",
+    }));
+  }
+
+  if (loading) return <Skeleton className="h-[520px] w-full" />;
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between space-y-0">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="h-5 w-5" />
+            LLM 설정
+          </CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">
+            일일 리포트의 전체 요약, 분야별 요약, 의사결정 포인트를 선택한 모델로 보강합니다.
+          </p>
+        </div>
+        <Badge variant={form.enabled ? "default" : "outline"}>
+          {form.enabled ? "사용 중" : "비활성"}
+        </Badge>
+      </CardHeader>
+      <CardContent className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="space-y-4">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.enabled}
+              onChange={(event) => setForm((prev) => ({ ...prev, enabled: event.target.checked }))}
+            />
+            일일 리포트에 LLM 사용
+          </label>
+
+          <label className="space-y-1 text-sm">
+            <span>Provider</span>
+            <select
+              className="h-10 w-full rounded-md border bg-background px-3"
+              value={form.provider}
+              onChange={(event) => updateProvider(event.target.value)}
+            >
+              {providers.map((provider) => (
+                <option key={provider} value={provider}>
+                  {provider}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1 text-sm">
+            <span>Model</span>
+            <input
+              list="llm-models"
+              className="h-10 w-full rounded-md border bg-background px-3"
+              value={form.model}
+              onChange={(event) => setForm((prev) => ({ ...prev, model: event.target.value }))}
+            />
+            <datalist id="llm-models">
+              {(providerModels[form.provider] ?? []).map((model) => (
+                <option key={model} value={model} />
+              ))}
+            </datalist>
+          </label>
+
+          <label className="space-y-1 text-sm">
+            <span>API Key {apiKeySet ? "(저장됨)" : "(미저장)"}</span>
+            <Input
+              type="password"
+              value={form.api_key}
+              placeholder={apiKeySet ? "새 키를 입력하면 교체됩니다." : "API 키를 입력하세요."}
+              onChange={(event) => setForm((prev) => ({ ...prev, api_key: event.target.value }))}
+            />
+          </label>
+
+          {(form.provider === "openai-compatible" || form.provider === "ollama") && (
+            <label className="space-y-1 text-sm">
+              <span>Base URL</span>
+              <Input
+                value={form.base_url}
+                placeholder={
+                  form.provider === "ollama"
+                    ? "http://host.docker.internal:11434/v1"
+                    : "https://your-provider.example/v1"
+                }
+                onChange={(event) => setForm((prev) => ({ ...prev, base_url: event.target.value }))}
+              />
+            </label>
+          )}
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="space-y-1 text-sm">
+              <span>Timeout</span>
+              <Input
+                type="number"
+                value={form.timeout_seconds}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    timeout_seconds: Number(event.target.value),
+                  }))
+                }
+              />
+            </label>
+            <label className="space-y-1 text-sm">
+              <span>Max tokens</span>
+              <Input
+                type="number"
+                value={form.max_output_tokens}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    max_output_tokens: Number(event.target.value),
+                  }))
+                }
+              />
+            </label>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={save} disabled={saving}>
+              <Save className="h-4 w-4" />
+              {saving ? "저장 중" : "저장"}
+            </Button>
+            {apiKeySet && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setForm((prev) => ({ ...prev, clear_api_key: true }))}
+              >
+                API 키 삭제 표시
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-3 rounded-md border bg-muted/20 p-4 text-sm">
+          <p className="font-medium">현재 선택</p>
+          <div className="grid gap-2">
+            <InfoRow label="설정 출처" value={source === "db" ? "관리자 저장값" : "환경변수"} />
+            <InfoRow label="Provider" value={form.provider} />
+            <InfoRow label="Model" value={form.model} />
+            <InfoRow label="API Key" value={apiKeySet ? "저장됨" : "없음"} />
+            <InfoRow label="Base URL" value={form.base_url || "provider 기본값"} />
+          </div>
+          <p className="pt-3 text-muted-foreground">
+            저장 후 다음 일일 리포트 생성부터 적용됩니다. 바로 확인하려면 잡 실행 탭에서
+            daily_pipeline을 수동 실행하세요.
+          </p>
+          {form.provider === "ollama" && (
+            <div className="rounded-md border bg-background p-3 text-xs text-muted-foreground">
+              Ollama는 로컬 PC 또는 서버에서 먼저 실행되어야 합니다. 예:
+              <code className="mt-2 block rounded bg-muted p-2">
+                ollama pull qwen2.5:7b{"\n"}ollama serve
+              </code>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md bg-background px-3 py-2">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium">{value}</span>
     </div>
   );
 }

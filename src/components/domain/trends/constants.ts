@@ -24,4 +24,4 @@ export const TREND_COLORS = [
   "#4f46e5",
 ];
 
-export const DEFAULT_KEYWORDS = ["AI", "해상풍력", "교통"];
+export const DEFAULT_KEYWORDS = ["광주", "전남", "AI", "산업", "교통", "의료", "관광", "에너지"];
